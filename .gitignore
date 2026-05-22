@@ -24,5 +24,9 @@ coverage/
 Thumbs.db
 Desktop.ini
 
-# Generated vulnerability reports (PDF output under data folders)
-data/**/Reporte_Vulnerabilidades_*.pdf
+# Generated vulnerability reports
+*.pdf
+*.csv
+
+# Exception: allow findings.csv in data/Ejemplo/
+!data/Ejemplo/findings.csv
