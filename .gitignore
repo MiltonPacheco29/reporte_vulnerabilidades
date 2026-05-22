@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build / coverage outputs
+dist/
+build/
+coverage/
+.nyc_output/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Generated vulnerability reports (PDF output under data folders)
+data/**/Reporte_Vulnerabilidades_*.pdf
