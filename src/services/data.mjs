@@ -181,6 +181,9 @@ export function analyzeData(data) {
   // Top 10 urgent
   const topUrgent = analyzeTopUrgent(data);
 
+  // Actionable priorities
+  const actionablePriorities = analyzeActionablePriorities(data);
+
   // Mitigation coverage
   const mitigationCoverage = analyzeMitigation(data);
 
@@ -203,6 +206,12 @@ export function analyzeData(data) {
     byRiskStatus[status] = (byRiskStatus[status] || 0) + 1;
   });
 
+  const productTypes = [...new Set(
+    data
+      .map(row => (row.product_type || '').trim())
+      .filter(Boolean)
+  )].sort();
+
   return {
     totalVulnerabilities,
     byTags,
@@ -213,10 +222,12 @@ export function analyzeData(data) {
     topComponents,
     sharedVulns,
     topUrgent,
+    actionablePriorities,
     mitigationCoverage,
     byFoundBy,
     byEnvironment,
     byRiskStatus,
+    productTypes,
     rawData: data
   };
 }
@@ -323,6 +334,92 @@ function analyzeTopUrgent(data) {
   });
 
   return topVulns;
+}
+
+function analyzeActionablePriorities(data) {
+  const severityWeight = {
+    Critical: 5,
+    High: 4,
+    'Medium High': 3.5,
+    Medium: 3,
+    'Medium Low': 2.5,
+    Low: 1.5,
+    Info: 0.5
+  };
+
+  function getSlaScore(daysRemaining) {
+    if (daysRemaining <= 0) return 2.5;
+    if (daysRemaining <= 15) return 2;
+    if (daysRemaining <= 30) return 1.5;
+    if (daysRemaining <= 90) return 0.7;
+    return 0;
+  }
+
+  function getActionReason(row, slaDaysRemaining, hasMitigation) {
+    const reasons = [];
+    const severity = (row.severity || '').trim();
+    const env = (row.product_type_environment || '').trim();
+
+    if (severity === 'Critical' || severity === 'High') reasons.push(`Severidad ${severity}`);
+    if (slaDaysRemaining <= 0) reasons.push('SLA vencido');
+    else if (slaDaysRemaining <= 30) reasons.push(`SLA ${slaDaysRemaining}d`);
+    if (/prod/i.test(env)) reasons.push('Producción');
+    if (!hasMitigation) reasons.push('Sin mitigación');
+
+    return reasons.length > 0 ? reasons.join(' + ') : 'Revisar por score combinado';
+  }
+
+  const scored = data.map(row => {
+    const severity = (row.severity || 'Info').trim();
+    const cvss = parseFloat(row.cvssv3_score) || 0;
+    const epssPercentile = parseFloat(row.epss_percentile) || 0;
+    const slaDaysRemaining = parseInt(row.sla_days_remaining) || 0;
+    const environment = (row.product_type_environment || 'Sin ambiente').trim();
+    const hasMitigation = (row.mitigation || '').trim().length > 0;
+    const isProduction = /prod/i.test(environment);
+
+    const score =
+      ((severityWeight[severity] || 0) * 2) +
+      cvss +
+      (epssPercentile * 3) +
+      getSlaScore(slaDaysRemaining) +
+      (isProduction ? 1.2 : 0) +
+      (hasMitigation ? 0 : 0.8);
+
+    return {
+      title: (row.title || '').trim(),
+      engagement: (row.engagement || 'Sin engagement').trim(),
+      areaResponsible: (row.area_responsible || 'Sin responsable').trim(),
+      product: (row.product || '').trim(),
+      productType: (row.product_type || '').trim(),
+      environment,
+      severity,
+      cvss,
+      epssPercentile,
+      slaDaysRemaining,
+      tag: (row.tags || '').trim(),
+      component: (row.component_name || '').trim(),
+      version: (row.component_version || '').trim(),
+      vulnerabilityIds: (row.vulnerability_ids || '').trim(),
+      mitigation: (row.mitigation || '').trim(),
+      score,
+      reason: getActionReason(row, slaDaysRemaining, hasMitigation)
+    };
+  });
+
+  const unique = [];
+  const seen = new Set();
+
+  scored
+    .sort((a, b) => b.score - a.score)
+    .forEach(vuln => {
+      const key = `${vuln.engagement}|${vuln.title}|${vuln.component}|${vuln.version}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      unique.push(vuln);
+    });
+
+  return unique.slice(0, 12);
 }
 
 // ── Mitigation Coverage ──────────────────────────────────────

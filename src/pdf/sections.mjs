@@ -4,16 +4,14 @@
 // Each function renders a complete section of the PDF report
 
 import {
-  COLORS, TAG_COLORS, SEVERITY_CONFIG, TYPOGRAPHY, SPACING,
-  PAGE, REPORT_META, TAG_DESCRIPTIONS, TAG_GROUPS, SEVERITY_ORDER
+  COLORS, TAG_COLORS, SEVERITY_CONFIG, TYPOGRAPHY,
+  PAGE, TAG_DESCRIPTIONS, TAG_GROUPS, SEVERITY_ORDER
 } from '../config/index.mjs';
 
 import {
   ensureSpace, applyFont, drawCoverPage, drawSectionTitle,
-  drawSubsectionTitle, drawSubsection, drawSeparator, drawKPIRow,
-  drawSeverityBadge, drawSeverityIndicator, drawTable, drawBarChart,
-  drawStatCard, drawVulnCard, drawRiskGauge, drawProgressBar,
-  drawSeverityDistribution, drawInfoBox, drawTOCEntry
+  drawSubsectionTitle, drawKPIRow, drawSeverityBadge, drawTable,
+  drawBarChart, drawSeverityDistribution, drawInfoBox
 } from './components.mjs';
 
 // ── 0. Cover Page ────────────────────────────────────────────
@@ -27,36 +25,9 @@ export function renderCover(doc, analysis, sprintName) {
     sprintName,
     totalVulnerabilities: analysis.totalVulnerabilities,
     severityCounts: analysis.severityCounts,
+    productTypes: analysis.productTypes,
     generationDate
   });
-}
-
-// ── 1. Table of Contents ─────────────────────────────────────
-
-export function renderTableOfContents(doc) {
-  doc.addPage();
-  drawSectionTitle(doc, 'Contenido', null);
-  doc.moveDown(1);
-
-  const tocEntries = [
-    { number: '01', title: 'Resumen Ejecutivo', page: 3 },
-    { number: '02', title: 'Análisis por Tipo de Vulnerabilidad', page: 4 },
-    { number: '03', title: 'Análisis por Servicio y Severidad', page: 5 },
-    { number: '04', title: 'Detalle de Vulnerabilidades', page: 6 },
-    { number: '05', title: 'Top 10 Vulnerabilidades Más Urgentes', page: '-' },
-    { number: '06', title: 'Análisis de SLA', page: '-' },
-    { number: '07', title: 'Vulnerabilidades Compartidas', page: '-' },
-    { number: '08', title: 'Componentes Más Vulnerables', page: '-' },
-    { number: '09', title: 'Cobertura de Mitigación', page: '-' },
-    { number: '10', title: 'Herramientas y Ambientes', page: '-' },
-  ];
-
-  tocEntries.forEach(entry => {
-    drawTOCEntry(doc, entry);
-  });
-
-  doc.moveDown(2);
-  drawInfoBox(doc, `Este reporte contiene información clasificada como ${REPORT_META.classification}. Su distribución está restringida al equipo de seguridad y stakeholders autorizados.`, 'warning');
 }
 
 // ── 2. Executive Summary ─────────────────────────────────────
@@ -110,26 +81,6 @@ export function renderExecutiveSummary(doc, analysis) {
   drawSeverityDistribution(doc, analysis.severityCounts, analysis.totalVulnerabilities);
 
   doc.moveDown(0.5);
-
-  // Severity table
-  drawTable(doc, {
-    headers: ['Severidad', 'Cantidad', '% del Total', 'Riesgo'],
-    rows: Object.entries(analysis.severityCounts)
-      .sort((a, b) => (SEVERITY_ORDER[a[0]] ?? 99) - (SEVERITY_ORDER[b[0]] ?? 99))
-      .map(([sev, count]) => [
-        sev,
-        count.toString(),
-        ((count / analysis.totalVulnerabilities) * 100).toFixed(1) + '%',
-        SEVERITY_ORDER[sev] <= 1 ? 'ALTO' : SEVERITY_ORDER[sev] <= 3 ? 'MEDIO' : 'BAJO'
-      ]),
-    colWidths: [PAGE.width * 0.30, PAGE.width * 0.20, PAGE.width * 0.25, PAGE.width * 0.25],
-    tableWidth: PAGE.width,
-    options: {
-      severityColumn: 0,
-      boldColumns: [1],
-      alignments: ['left', 'center', 'center', 'center']
-    }
-  });
 }
 
 // ── 3. Tags Analysis ─────────────────────────────────────────
@@ -144,24 +95,6 @@ export function renderTagsAnalysis(doc, analysis) {
   doc.text('Clasificación de vulnerabilidades según su tipo de escaneo o fuente de detección:', PAGE.margins.left);
   doc.moveDown(1.2);
 
-  drawTable(doc, {
-    headers: ['Tipo (Tag)', 'Cantidad', '% del Total'],
-    rows: Object.entries(analysis.byTags)
-      .sort((a, b) => b[1] - a[1])
-      .map(([tag, count]) => [
-        tag,
-        count.toString(),
-        ((count / analysis.totalVulnerabilities) * 100).toFixed(1) + '%'
-      ]),
-    colWidths: [PAGE.width * 0.50, PAGE.width * 0.25, PAGE.width * 0.25],
-    tableWidth: PAGE.width,
-    options: {
-      boldColumns: [1],
-      alignments: ['left', 'center', 'center']
-    }
-  });
-
-  doc.moveDown(1);
   drawBarChart(doc, {
     title: 'Vulnerabilidades por Tipo',
     data: analysis.byTags,
@@ -190,45 +123,26 @@ export function renderTagsAnalysis(doc, analysis) {
 // ── 4. Engagement Severity Matrix ────────────────────────────
 
 export function renderEngagementSeverity(doc, analysis) {
-  ensureSpace(doc, 300);
-  doc.moveDown(1);
+  doc.addPage();
   drawSectionTitle(doc, 'Análisis por Servicio y Severidad', '03');
   doc.moveDown(1);
 
   applyFont(doc, TYPOGRAPHY.body);
-  doc.text('Distribución de vulnerabilidades por servicio (engagement) y nivel de severidad:', PAGE.margins.left);
+  doc.text(
+    'Distribución de vulnerabilidades por servicio (engagement), nivel de severidad y grupo de origen: Fluid Attacks, C2C y motores de análisis agrupados.',
+    PAGE.margins.left
+  );
   doc.moveDown(1.2);
 
-  const severityColumns = ['Info', 'Low', 'Medium', 'High', 'Critical'];
-  const engagements = Object.entries(analysis.byEngagementSeverity)
-    .sort((a, b) => {
-      const totalA = Object.values(a[1]).reduce((s, v) => s + v, 0);
-      const totalB = Object.values(b[1]).reduce((s, v) => s + v, 0);
-      return totalB - totalA;
-    });
-
-  const rows = engagements.map(([engagement, sevMap]) => {
-    const total = Object.values(sevMap).reduce((s, v) => s + v, 0);
-    const shortName = engagement.length > 40 ? engagement.substring(0, 40) + '...' : engagement;
-    return [
-      shortName,
-      (sevMap['Info'] || 0).toString(),
-      (sevMap['Low'] || 0).toString(),
-      (sevMap['Medium'] || sevMap['Medium Low'] || 0).toString(),
-      (sevMap['High'] || sevMap['Medium High'] || 0).toString(),
-      (sevMap['Critical'] || 0).toString(),
-      total.toString()
-    ];
-  });
-
+  const groups = buildEngagementSeverityGroups(analysis.rawData);
   const headers = ['Servicio', 'Info', 'Low', 'Med', 'High', 'Crit', 'Total'];
   const colWidths = [
-    PAGE.width * 0.37,
-    PAGE.width * 0.09,
-    PAGE.width * 0.09,
-    PAGE.width * 0.09,
-    PAGE.width * 0.09,
-    PAGE.width * 0.09,
+    PAGE.width * 0.46,
+    PAGE.width * 0.08,
+    PAGE.width * 0.08,
+    PAGE.width * 0.08,
+    PAGE.width * 0.08,
+    PAGE.width * 0.08,
     PAGE.width * 0.10,
   ];
 
@@ -236,28 +150,184 @@ export function renderEngagementSeverity(doc, analysis) {
   const remainder = PAGE.width - colWidths.reduce((a, b) => a + b, 0);
   colWidths[0] += remainder;
 
+  groups.forEach(group => {
+    ensureSpace(doc, 120);
+    drawSubsectionTitle(doc, group.title);
+    applyFont(doc, TYPOGRAPHY.bodySmall);
+    doc.text(group.description, PAGE.margins.left);
+    doc.moveDown(0.7);
+
+    if (group.rows.length === 0) {
+      drawInfoBox(doc, `No se encontraron vulnerabilidades para ${group.title}.`, 'info');
+      return;
+    }
+
+    drawTable(doc, {
+      headers,
+      rows: group.rows,
+      colWidths,
+      tableWidth: PAGE.width,
+      options: {
+        rowHeight: 30,
+        boldColumns: [6],
+        alignments: ['left', 'center', 'center', 'center', 'center', 'center', 'center'],
+        cellColors: {
+          4: (cell) => parseInt(cell) > 0 ? COLORS.High : null,
+          5: (cell) => parseInt(cell) > 0 ? COLORS.Critical : null,
+        }
+      }
+    });
+  });
+}
+
+export function renderActionablePriorities(doc, analysis) {
+  doc.addPage();
+  drawSectionTitle(doc, 'Prioridades Accionables', '04');
+  doc.moveDown(1);
+
+  applyFont(doc, TYPOGRAPHY.body);
+  doc.text(
+    'Ranking de vulnerabilidades que deberían atenderse primero, combinando severidad, CVSS, EPSS, vencimiento de SLA, ambiente y disponibilidad de mitigación.',
+    PAGE.margins.left
+  );
+  doc.moveDown(1);
+
+  const priorities = analysis.actionablePriorities || [];
+
+  if (priorities.length === 0) {
+    drawInfoBox(doc, 'No se encontraron vulnerabilidades priorizables con los datos actuales.', 'info');
+    return;
+  }
+
+  const top = priorities[0];
+  drawInfoBox(
+    doc,
+    `Prioridad principal: ${top.title} en ${top.engagement}. Motivo: ${top.reason}.`,
+    top.severity === 'Critical' || top.slaDaysRemaining <= 0 ? 'danger' : 'warning'
+  );
+
+  const headers = ['#', 'Score', 'Sev', 'SLA', 'Ambiente', 'Servicio', 'Acción'];
+  const colWidths = [
+    PAGE.width * 0.05,
+    PAGE.width * 0.08,
+    PAGE.width * 0.12,
+    PAGE.width * 0.08,
+    PAGE.width * 0.13,
+    PAGE.width * 0.20,
+    PAGE.width * 0.30,
+  ];
+  const remainder = PAGE.width - colWidths.reduce((a, b) => a + b, 0);
+  colWidths[6] += remainder;
+
   drawTable(doc, {
     headers,
-    rows,
+    rows: priorities.map((vuln, idx) => [
+      (idx + 1).toString(),
+      vuln.score.toFixed(1),
+      vuln.severity,
+      vuln.slaDaysRemaining <= 0 ? 'Vencido' : `${vuln.slaDaysRemaining}d`,
+      shortenText(vuln.environment, 18),
+      shortenText(vuln.engagement, 28),
+      buildActionText(vuln)
+    ]),
     colWidths,
     tableWidth: PAGE.width,
     options: {
-      boldColumns: [6],
-      alignments: ['left', 'center', 'center', 'center', 'center', 'center', 'center'],
+      rowHeight: 42,
+      severityColumn: 2,
+      boldColumns: [0, 1],
+      alignments: ['center', 'center', 'left', 'center', 'left', 'left', 'left'],
       cellColors: {
-        4: (cell) => parseInt(cell) > 0 ? COLORS.High : null,
-        5: (cell) => parseInt(cell) > 0 ? COLORS.Critical : null,
+        3: (cell) => cell === 'Vencido' ? COLORS.Critical : null,
       }
     }
+  });
+}
+
+function buildActionText(vuln) {
+  const mitigation = vuln.mitigation || 'Definir remediación';
+  const component = vuln.component ? `${vuln.component}${vuln.version ? ` ${vuln.version}` : ''}` : 'componente no informado';
+  return shortenText(`${vuln.reason}. ${component}. ${mitigation}`, 92);
+}
+
+function shortenText(text, maxLength) {
+  if (!text) return '';
+  return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
+}
+
+function buildEngagementSeverityGroups(data) {
+  const groupDefinitions = [
+    {
+      title: 'fluidattacks',
+      description: 'Hallazgos detectados por Hacking Continuo / Fluid Attacks.',
+      tags: ['fluidattacks']
+    },
+    {
+      title: 'c2c',
+      description: 'Hallazgos de Continuous Compliance y configuración de infraestructura.',
+      tags: ['c2c']
+    },
+    {
+      title: 'engines',
+      description: 'Grupo combinado: engine_dependencies, engine_container, engine_iac y black_list; engine_dependencies.',
+      tags: ['engine_dependencies', 'engine_container', 'engine_iac', 'black_list; engine_dependencies']
+    },
+  ];
+
+  return groupDefinitions.map(group => {
+    const byEngagement = {};
+
+    data.forEach(row => {
+      const tag = (row.tags || '').trim().toLowerCase();
+      if (!group.tags.includes(tag)) return;
+
+      const engagement = (row.engagement || 'Sin engagement').trim();
+      const severity = (row.severity || 'Info').trim();
+
+      if (!byEngagement[engagement]) {
+        byEngagement[engagement] = {
+          Info: 0,
+          Low: 0,
+          Medium: 0,
+          High: 0,
+          Critical: 0,
+          total: 0,
+        };
+      }
+
+      if (severity === 'Medium' || severity === 'Medium Low') byEngagement[engagement].Medium++;
+      else if (severity === 'High' || severity === 'Medium High') byEngagement[engagement].High++;
+      else if (severity === 'Critical') byEngagement[engagement].Critical++;
+      else if (severity === 'Low') byEngagement[engagement].Low++;
+      else byEngagement[engagement].Info++;
+
+      byEngagement[engagement].total++;
+    });
+
+    const rows = Object.entries(byEngagement)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([engagement, counts]) => {
+        const shortName = engagement.length > 34 ? engagement.substring(0, 34) + '...' : engagement;
+        return [
+          shortName,
+          counts.Info.toString(),
+          counts.Low.toString(),
+          counts.Medium.toString(),
+          counts.High.toString(),
+          counts.Critical.toString(),
+          counts.total.toString(),
+        ];
+      });
+
+    return { ...group, rows };
   });
 }
 
 // ── 5. Vulnerability Detail ──────────────────────────────────
 
 export function renderVulnerabilityDetail(doc, analysis) {
-  ensureSpace(doc, 200);
-  doc.moveDown(1);
-  drawSectionTitle(doc, 'Detalle de Vulnerabilidades por Servicio', '04');
+  doc.addPage();
+  drawSectionTitle(doc, 'Detalle de Vulnerabilidades por Servicio', '05');
   doc.moveDown(0.5);
 
   applyFont(doc, TYPOGRAPHY.bodySmall);
@@ -287,14 +357,14 @@ function renderTypeSection(doc, analysis, sectionNum, title, description, tagGro
 
   // Section header with accent
   const y = doc.y;
-  doc.rect(PAGE.margins.left, y, PAGE.width, 28).fill(COLORS.gray50);
-  doc.rect(PAGE.margins.left, y, 4, 28).fill(COLORS.accent);
+  doc.roundedRect(PAGE.margins.left, y, PAGE.width, 32, 4).fill(COLORS.gray50);
+  doc.rect(PAGE.margins.left, y + 6, 3, 20).fill(COLORS.accent);
 
   applyFont(doc, { size: 12, font: 'Helvetica-Bold', color: COLORS.primary });
-  doc.text(`4.${sectionNum} ${title}`, PAGE.margins.left + 14, y + 4);
+  doc.text(`5.${sectionNum} ${title}`, PAGE.margins.left + 14, y + 5);
   applyFont(doc, TYPOGRAPHY.caption);
-  doc.text(description, PAGE.margins.left + 14, y + 17);
-  doc.y = y + 34;
+  doc.text(description, PAGE.margins.left + 14, y + 19);
+  doc.y = y + 40;
 
   const engagementsByTag = getEngagementsByTagGroup(analysis.detailByEngagement, tagGroup);
   const { noTest, test } = splitAndSort(engagementsByTag);
@@ -334,7 +404,7 @@ function renderEngagementGroup(doc, groupTitle, engagementsList) {
 
   // Group header
   applyFont(doc, { size: 10, font: 'Helvetica-Bold', color: COLORS.gray700 });
-  doc.text(`> ${groupTitle}`, PAGE.margins.left);
+  doc.text(groupTitle.toUpperCase(), PAGE.margins.left);
   doc.moveDown(0.5);
 
   engagementsList.forEach(([engagement, vulns]) => {
@@ -344,8 +414,8 @@ function renderEngagementGroup(doc, groupTitle, engagementsList) {
 
     // Engagement header bar - taller for better readability
     const engY = doc.y;
-    doc.rect(PAGE.margins.left, engY, PAGE.width, 30).fill('#EFF6FF');
-    doc.rect(PAGE.margins.left, engY, 3, 30).fill(COLORS.accent);
+    doc.roundedRect(PAGE.margins.left, engY, PAGE.width, 32, 4).fill('#ECFDF5');
+    doc.rect(PAGE.margins.left, engY + 6, 3, 20).fill(COLORS.accent);
 
     applyFont(doc, { size: 9.5, font: 'Helvetica-Bold', color: COLORS.primary });
     doc.text(shortEngagement, PAGE.margins.left + 12, engY + 5);
@@ -476,372 +546,4 @@ function renderVulnItem(doc, vuln, idx) {
   const sepY = y + totalHeight + 4;
   doc.rect(contentX, sepY, contentWidth - 10, 0.4).fill(COLORS.gray200);
   doc.y = sepY + 10;
-}
-
-// ── 6. Top 10 Urgent ─────────────────────────────────────────
-
-export function renderTopUrgent(doc, analysis) {
-  ensureSpace(doc, 200);
-  doc.moveDown(1);
-  drawSectionTitle(doc, 'Top 10 Vulnerabilidades Más Urgentes', '05');
-  doc.moveDown(1);
-
-  applyFont(doc, { size: 8.5, font: 'Helvetica-Oblique', color: COLORS.gray600 });
-  doc.text(
-    'Nota: Priorización basada en CVSS Score × 0.7 + EPSS Percentil × 0.3. Mayor puntaje combinado = mayor urgencia de remediación.',
-    PAGE.margins.left,
-    doc.y,
-    { width: PAGE.width }
-  );
-  doc.moveDown(0.9);
-
-  analysis.topUrgent.forEach((vuln, idx) => {
-    ensureSpace(doc, 95);
-    const config = SEVERITY_CONFIG[vuln.severity] || SEVERITY_CONFIG['Info'];
-    const y = doc.y;
-
-    // Card background - taller with more internal space
-    doc.rect(PAGE.margins.left, y, PAGE.width, 72).fill(idx < 3 ? '#FEF2F2' : COLORS.gray50);
-    doc.rect(PAGE.margins.left, y, 4, 72).fill(config.color);
-
-    // Rank number
-    doc.fontSize(16).font('Helvetica-Bold').fillColor(config.color);
-    doc.text(`#${idx + 1}`, PAGE.margins.left + 12, y + 10);
-
-    // Title
-    const titleText = vuln.title.length > 65 ? vuln.title.substring(0, 65) + '...' : vuln.title;
-    doc.fontSize(9).font('Helvetica-Bold').fillColor(COLORS.gray800);
-    doc.text(titleText, PAGE.margins.left + 48, y + 10, { width: PAGE.width - 130 });
-
-    // Severity badge
-    drawSeverityBadge(doc, vuln.severity, PAGE.margins.left + PAGE.width - 68, y + 8);
-
-    // Scores
-    doc.fontSize(8).font('Helvetica').fillColor(COLORS.gray600);
-    doc.text(
-      `CVSS: ${vuln.cvss}  |  EPSS: ${(vuln.epss * 100).toFixed(4)}% (P${(vuln.epssPercentile * 100).toFixed(0)}%)  |  Score: ${vuln.combinedScore.toFixed(2)}`,
-      PAGE.margins.left + 48, y + 28
-    );
-
-    // Component and service
-    doc.text(
-      `Componente: ${vuln.component} v${vuln.version}  |  Servicio: ${vuln.engagement.length > 40 ? vuln.engagement.substring(0, 40) + '...' : vuln.engagement}`,
-      PAGE.margins.left + 48, y + 42
-    );
-
-    // Mitigation
-    if (vuln.mitigation) {
-      doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.success);
-      doc.text(`[Fix] ${vuln.mitigation}`, PAGE.margins.left + 48, y + 56);
-    }
-
-    doc.y = y + 82;
-  });
-}
-
-// ── 7. SLA Analysis ──────────────────────────────────────────
-
-export function renderSLAAnalysis(doc, analysis) {
-  ensureSpace(doc, 280);
-  doc.moveDown(1);
-  drawSectionTitle(doc, 'Análisis de SLA', '06');
-  doc.moveDown(1);
-
-  applyFont(doc, TYPOGRAPHY.body);
-  doc.text('Estado de cumplimiento de SLA. Vulnerabilidades agrupadas por tiempo restante para vencimiento.', PAGE.margins.left);
-  doc.moveDown(1.2);
-
-  const { vencido, critico, proximo, holgado, avgAge, urgentSLA, total } = analysis.slaAnalysis;
-
-  // SLA KPI cards
-  drawKPIRow(doc, [
-    { label: 'VENCIDO', value: vencido.length.toString(), color: COLORS.Critical },
-    { label: 'CRÍTICO (1-30d)', value: critico.length.toString(), color: COLORS.High },
-    { label: 'PRÓXIMO (31-90d)', value: proximo.length.toString(), color: COLORS.Medium },
-    { label: 'HOLGADO (>90d)', value: holgado.length.toString(), color: COLORS.success },
-  ]);
-
-  doc.moveDown(0.5);
-
-  // SLA table
-  drawTable(doc, {
-    headers: ['Estado SLA', 'Cantidad', '% del Total'],
-    rows: [
-      ['Vencido (0 días o menos)', vencido.length.toString(), ((vencido.length / total) * 100).toFixed(1) + '%'],
-      ['Crítico (1-30 días)', critico.length.toString(), ((critico.length / total) * 100).toFixed(1) + '%'],
-      ['Próximo (31-90 días)', proximo.length.toString(), ((proximo.length / total) * 100).toFixed(1) + '%'],
-      ['Holgado (>90 días)', holgado.length.toString(), ((holgado.length / total) * 100).toFixed(1) + '%'],
-    ],
-    colWidths: [PAGE.width * 0.50, PAGE.width * 0.25, PAGE.width * 0.25],
-    tableWidth: PAGE.width,
-    options: { alignments: ['left', 'center', 'center'], boldColumns: [1] }
-  });
-
-  doc.moveDown(0.5);
-  applyFont(doc, TYPOGRAPHY.body);
-  doc.text(`Antigüedad promedio de vulnerabilidades: ${avgAge.toFixed(0)} días`, PAGE.margins.left);
-  doc.moveDown(1);
-
-  // Urgent SLA list
-  if (urgentSLA.length > 0) {
-    drawSubsectionTitle(doc, 'Vulnerabilidades con SLA Crítico o Vencido');
-    doc.moveDown(0.4);
-
-    drawTable(doc, {
-      headers: ['Severidad', 'Días Restantes', 'Servicio'],
-      rows: urgentSLA.map(v => [
-        v.severity,
-        v.slaDaysRemaining <= 0 ? 'VENCIDO' : v.slaDaysRemaining.toString(),
-        v.engagement.length > 42 ? v.engagement.substring(0, 42) + '...' : v.engagement
-      ]),
-      colWidths: [PAGE.width * 0.20, PAGE.width * 0.20, PAGE.width * 0.60],
-      tableWidth: PAGE.width,
-      options: {
-        severityColumn: 0,
-        alignments: ['left', 'center', 'left'],
-        cellColors: {
-          1: (cell) => cell === 'VENCIDO' ? COLORS.Critical : null
-        }
-      }
-    });
-  } else {
-    drawInfoBox(doc, 'No hay vulnerabilidades con SLA vencido o crítico.', 'success');
-  }
-}
-
-// ── 8. Shared Vulnerabilities ────────────────────────────────
-
-export function renderSharedVulnerabilities(doc, analysis) {
-  ensureSpace(doc, 240);
-  doc.moveDown(1);
-  drawSectionTitle(doc, 'Vulnerabilidades Compartidas entre Servicios', '07');
-  doc.moveDown(1);
-
-  drawInfoBox(doc,
-    'CVEs que aparecen en múltiples servicios. Solucionar una dependencia compartida puede cerrar varias vulnerabilidades simultáneamente.',
-    'info'
-  );
-  doc.moveDown(1);
-
-  const { sharedVulns } = analysis;
-
-  applyFont(doc, TYPOGRAPHY.body);
-  doc.text(`Total CVEs compartidos entre 2+ servicios: ${sharedVulns.length}`, PAGE.margins.left);
-  doc.moveDown(0.5);
-
-  if (sharedVulns.length > 0) {
-    drawTable(doc, {
-      headers: ['CVE/ID', 'Severidad', 'Componente', 'Servicios'],
-      rows: sharedVulns.slice(0, 20).map(v => [
-        v.id.length > 20 ? v.id.substring(0, 20) : v.id,
-        v.severity,
-        `${v.component} v${v.version}`.substring(0, 30),
-        v.engagements.size.toString()
-      ]),
-      colWidths: [PAGE.width * 0.25, PAGE.width * 0.20, PAGE.width * 0.35, PAGE.width * 0.20],
-      tableWidth: PAGE.width,
-      options: {
-        severityColumn: 1,
-        alignments: ['left', 'left', 'left', 'center'],
-        boldColumns: [3]
-      }
-    });
-
-    doc.moveDown(1);
-    drawSubsectionTitle(doc, 'Top 10 CVEs Más Extendidos');
-    doc.moveDown(0.4);
-
-    sharedVulns.slice(0, 10).forEach((vuln, idx) => {
-      ensureSpace(doc, 60);
-      const config = SEVERITY_CONFIG[vuln.severity] || SEVERITY_CONFIG['Info'];
-      const y = doc.y;
-
-      // Mini card - more height and padding
-      doc.rect(PAGE.margins.left, y, PAGE.width, 42).fill(COLORS.gray50);
-      doc.rect(PAGE.margins.left, y, 3, 42).fill(config.color);
-
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(config.color);
-      doc.text(`${idx + 1}. [${vuln.severity}] ${vuln.id}`, PAGE.margins.left + 12, y + 6);
-
-      doc.fontSize(8).font('Helvetica').fillColor(COLORS.gray600);
-      doc.text(`${vuln.component} v${vuln.version}  |  Presente en ${vuln.engagements.size} servicios`, PAGE.margins.left + 12, y + 20);
-
-      if (vuln.mitigation) {
-        doc.fontSize(8).font('Helvetica').fillColor(COLORS.success);
-        doc.text(`[Fix] ${vuln.mitigation}`, PAGE.margins.left + 12, y + 32);
-      }
-
-      doc.y = y + 50;
-    });
-  } else {
-    drawInfoBox(doc, 'No se encontraron CVEs compartidos entre múltiples servicios.', 'success');
-  }
-}
-
-// ── 9. Top Components ────────────────────────────────────────
-
-export function renderTopComponents(doc, analysis) {
-  ensureSpace(doc, 240);
-  doc.moveDown(1);
-  drawSectionTitle(doc, 'Componentes Más Vulnerables', '08');
-  doc.moveDown(1);
-
-  applyFont(doc, TYPOGRAPHY.body);
-  doc.text('Librerías/componentes que acumulan más vulnerabilidades. Actualizar estos componentes tiene mayor impacto en la reducción de riesgo.', PAGE.margins.left);
-  doc.moveDown(1.2);
-
-  drawTable(doc, {
-    headers: ['Componente', 'Vulnerabilidades', 'Versiones', 'Servicios'],
-    rows: analysis.topComponents.map(c => [
-      c.name.length > 32 ? c.name.substring(0, 32) + '...' : c.name,
-      c.count.toString(),
-      [...c.versions].join(', ').length > 18 ? [...c.versions].slice(0, 2).join(', ') : [...c.versions].join(', '),
-      c.engagements.size.toString()
-    ]),
-    colWidths: [PAGE.width * 0.38, PAGE.width * 0.18, PAGE.width * 0.26, PAGE.width * 0.18],
-    tableWidth: PAGE.width,
-    options: {
-      boldColumns: [1],
-      alignments: ['left', 'center', 'left', 'center']
-    }
-  });
-
-  doc.moveDown(1.5);
-  drawBarChart(doc, {
-    title: 'Top 10 Componentes con más vulnerabilidades',
-    data: Object.fromEntries(analysis.topComponents.slice(0, 10).map(c => [
-      c.name.length > 28 ? c.name.substring(0, 28) : c.name, c.count
-    ])),
-    colors: TAG_COLORS,
-    maxWidth: PAGE.width
-  });
-}
-
-// ── 10. Mitigation Coverage ──────────────────────────────────
-
-export function renderMitigationCoverage(doc, analysis) {
-  ensureSpace(doc, 280);
-  doc.moveDown(1);
-  drawSectionTitle(doc, 'Cobertura de Mitigación', '09');
-  doc.moveDown(1);
-
-  applyFont(doc, TYPOGRAPHY.body);
-  doc.text('Porcentaje de vulnerabilidades con fix/versión disponible vs las que no tienen solución conocida.', PAGE.margins.left);
-  doc.moveDown(1.2);
-
-  const { withFix, withoutFix, noFixBySeverity, total } = analysis.mitigationCoverage;
-
-  // KPI cards
-  drawKPIRow(doc, [
-    { label: 'CON FIX DISPONIBLE', value: withFix.toString(), color: COLORS.success },
-    { label: 'SIN FIX CONOCIDO', value: withoutFix.toString(), color: COLORS.danger },
-    { label: '% COBERTURA', value: `${((withFix / total) * 100).toFixed(0)}%`, color: COLORS.accent },
-  ]);
-
-  doc.moveDown(1);
-
-  drawTable(doc, {
-    headers: ['Estado', 'Cantidad', '% del Total'],
-    rows: [
-      ['Con fix disponible', withFix.toString(), ((withFix / total) * 100).toFixed(1) + '%'],
-      ['Sin fix conocido', withoutFix.toString(), ((withoutFix / total) * 100).toFixed(1) + '%']
-    ],
-    colWidths: [PAGE.width * 0.45, PAGE.width * 0.25, PAGE.width * 0.30],
-    tableWidth: PAGE.width,
-    options: {
-      alignments: ['left', 'center', 'center'],
-      boldColumns: [1],
-      cellColors: {
-        0: (cell) => cell.includes('Sin fix') ? COLORS.danger : COLORS.success
-      }
-    }
-  });
-
-  doc.moveDown(1);
-  drawBarChart(doc, {
-    title: 'Cobertura de Mitigación',
-    data: { 'Con fix disponible': withFix, 'Sin fix conocido': withoutFix },
-    colors: { 'Con fix disponible': COLORS.success, 'Sin fix conocido': COLORS.danger },
-    maxWidth: PAGE.width
-  });
-
-  // No fix by severity
-  doc.moveDown(1);
-  drawSubsectionTitle(doc, 'Sin Fix Conocido por Severidad');
-  doc.moveDown(0.4);
-
-  drawTable(doc, {
-    headers: ['Severidad', 'Sin Fix', '% sin Fix'],
-    rows: Object.entries(noFixBySeverity)
-      .sort((a, b) => (SEVERITY_ORDER[a[0]] ?? 99) - (SEVERITY_ORDER[b[0]] ?? 99))
-      .map(([sev, count]) => [sev, count.toString(), ((count / withoutFix) * 100).toFixed(1) + '%']),
-    colWidths: [PAGE.width * 0.35, PAGE.width * 0.30, PAGE.width * 0.35],
-    tableWidth: PAGE.width * 0.7,
-    options: {
-      severityColumn: 0,
-      alignments: ['left', 'center', 'center']
-    }
-  });
-}
-
-// ── 11. Tools & Environment ──────────────────────────────────
-
-export function renderToolsEnvironment(doc, analysis) {
-  ensureSpace(doc, 240);
-  doc.moveDown(1);
-  drawSectionTitle(doc, 'Herramientas de Detección y Ambientes', '10');
-  doc.moveDown(1);
-
-  // By tool
-  drawSubsectionTitle(doc, 'Vulnerabilidades por Herramienta de Detección');
-
-  drawTable(doc, {
-    headers: ['Herramienta', 'Cantidad', '% del Total'],
-    rows: Object.entries(analysis.byFoundBy)
-      .sort((a, b) => b[1] - a[1])
-      .map(([tool, count]) => [tool, count.toString(), ((count / analysis.totalVulnerabilities) * 100).toFixed(1) + '%']),
-    colWidths: [PAGE.width * 0.45, PAGE.width * 0.25, PAGE.width * 0.30],
-    tableWidth: PAGE.width,
-    options: { alignments: ['left', 'center', 'center'], boldColumns: [1] }
-  });
-
-  doc.moveDown(1.5);
-
-  // By environment
-  drawSubsectionTitle(doc, 'Vulnerabilidades por Ambiente');
-  doc.moveDown(0.4);
-
-  drawTable(doc, {
-    headers: ['Ambiente', 'Cantidad', '% del Total'],
-    rows: Object.entries(analysis.byEnvironment)
-      .sort((a, b) => b[1] - a[1])
-      .map(([env, count]) => [env, count.toString(), ((count / analysis.totalVulnerabilities) * 100).toFixed(1) + '%']),
-    colWidths: [PAGE.width * 0.50, PAGE.width * 0.25, PAGE.width * 0.25],
-    tableWidth: PAGE.width,
-    options: { alignments: ['left', 'center', 'center'], boldColumns: [1] }
-  });
-
-  doc.moveDown(1.5);
-  drawBarChart(doc, {
-    title: 'Distribución por Ambiente',
-    data: analysis.byEnvironment,
-    colors: { 'ENTORNO PLATAFORMAS DE DESARROLLO': '#3B82F6', 'PRODUCCION': '#DC2626', 'QA': '#F59E0B' },
-    maxWidth: PAGE.width
-  });
-
-  // Risk status
-  doc.moveDown(1.5);
-  ensureSpace(doc, 150);
-  drawSubsectionTitle(doc, 'Estado de Riesgo');
-  doc.moveDown(0.4);
-
-  drawTable(doc, {
-    headers: ['Estado de Riesgo', 'Cantidad', '% del Total'],
-    rows: Object.entries(analysis.byRiskStatus)
-      .sort((a, b) => b[1] - a[1])
-      .map(([status, count]) => [status, count.toString(), ((count / analysis.totalVulnerabilities) * 100).toFixed(1) + '%']),
-    colWidths: [PAGE.width * 0.45, PAGE.width * 0.25, PAGE.width * 0.30],
-    tableWidth: PAGE.width,
-    options: { alignments: ['left', 'center', 'center'], boldColumns: [1] }
-  });
 }

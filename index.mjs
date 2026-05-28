@@ -17,17 +17,11 @@ import { addHeaderFooter } from './src/pdf/components.mjs';
 import { parseCSV, filterByValidTags, analyzeData, findSprintFolders } from './src/services/data.mjs';
 import {
   renderCover,
-  renderTableOfContents,
   renderExecutiveSummary,
   renderTagsAnalysis,
   renderEngagementSeverity,
-  renderVulnerabilityDetail,
-  renderTopUrgent,
-  renderSLAAnalysis,
-  renderSharedVulnerabilities,
-  renderTopComponents,
-  renderMitigationCoverage,
-  renderToolsEnvironment
+  renderActionablePriorities,
+  renderVulnerabilityDetail
 } from './src/pdf/sections.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,19 +50,13 @@ async function generatePDF(analysis, sprintName, outputPath) {
   const stream = fs.createWriteStream(outputPath);
   doc.pipe(stream);
 
-  // ── Render all sections ──────────────────────────────────
+  // Render report sections.
   renderCover(doc, analysis, sprintName);
-  renderTableOfContents(doc);
   renderExecutiveSummary(doc, analysis);
   renderTagsAnalysis(doc, analysis);
   renderEngagementSeverity(doc, analysis);
+  renderActionablePriorities(doc, analysis);
   renderVulnerabilityDetail(doc, analysis);
-  renderTopUrgent(doc, analysis);
-  renderSLAAnalysis(doc, analysis);
-  renderSharedVulnerabilities(doc, analysis);
-  renderTopComponents(doc, analysis);
-  renderMitigationCoverage(doc, analysis);
-  renderToolsEnvironment(doc, analysis);
 
   // ── Apply headers and footers to all pages ───────────────
   const range = doc.bufferedPageRange();

@@ -6,7 +6,8 @@
   "main": "index.mjs",
   "scripts": {
     "start": "node index.mjs",
-    "analyze": "node index.mjs"
+    "analyze": "node index.mjs",
+    "check": "node --check index.mjs && node --check src/services/data.mjs && node --check src/pdf/components.mjs && node --check src/pdf/sections.mjs"
   },
   "dependencies": {
     "papaparse": "^5.4.1",

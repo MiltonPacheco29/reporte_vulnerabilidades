@@ -23,28 +23,22 @@ export function applyFont(doc, style) {
 
 // ── Cover Page ───────────────────────────────────────────────
 
-export function drawCoverPage(doc, { sprintName, totalVulnerabilities, severityCounts, generationDate }) {
+export function drawCoverPage(doc, { sprintName, totalVulnerabilities, severityCounts, productTypes = [], generationDate }) {
   const pageW = doc.page.width;
   const pageH = doc.page.height;
 
-  // Full-page dark background
+  // Full-page editorial background
   doc.rect(0, 0, pageW, pageH).fill(COLORS.coverBg);
 
   // Accent bar at top
-  doc.rect(0, 0, pageW, 6).fill(COLORS.accent);
+  doc.rect(0, 0, pageW, 7).fill(COLORS.accent);
 
-  // Left accent stripe
-  doc.rect(0, 0, 4, pageH).fill(COLORS.accent);
-
-  // Geometric decoration - subtle grid pattern
+  // Soft panel for the main content area
   doc.save();
-  doc.opacity(0.03);
-  for (let i = 0; i < 20; i++) {
-    doc.rect(40 + (i * 28), 80, 1, pageH - 160).fill(COLORS.white);
-  }
-  for (let i = 0; i < 30; i++) {
-    doc.rect(40, 80 + (i * 28), pageW - 80, 0.5).fill(COLORS.white);
-  }
+  doc.opacity(0.08);
+  doc.roundedRect(38, 92, pageW - 76, pageH - 188, 10).fill(COLORS.white);
+  doc.opacity(0.18);
+  doc.rect(56, 130, 70, 4).fill(COLORS.accent);
   doc.restore();
 
   // Classification badge
@@ -53,7 +47,7 @@ export function drawCoverPage(doc, { sprintName, totalVulnerabilities, severityC
   const classH = 22;
   const classX = pageW - classW - 40;
   const classY = 35;
-  doc.roundedRect(classX, classY, classW, classH, 3).fill('#DC2626');
+  doc.roundedRect(classX, classY, classW, classH, 4).fill(COLORS.danger);
   applyFont(doc, { size: 8, font: 'Helvetica-Bold', color: COLORS.white });
   doc.text(REPORT_META.classification, classX, classY + 7, { width: classW, align: 'center' });
   doc.restore();
@@ -61,11 +55,8 @@ export function drawCoverPage(doc, { sprintName, totalVulnerabilities, severityC
   // Main title block - positioned at golden ratio
   const titleY = pageH * 0.30;
 
-  // Accent line before title
-  doc.rect(56, titleY - 20, 60, 3).fill(COLORS.accent);
-
   // Report type label
-  applyFont(doc, { size: 11, font: 'Helvetica', color: '#64748B' });
+  applyFont(doc, { size: 10, font: 'Helvetica-Bold', color: '#8FA3AD' });
   doc.text('SECURITY ASSESSMENT', 56, titleY);
 
   // Main title
@@ -81,29 +72,34 @@ export function drawCoverPage(doc, { sprintName, totalVulnerabilities, severityC
   // Divider
   doc.moveDown(1.5);
   const divY = doc.y;
-  doc.rect(56, divY, pageW - 112, 0.5).fill('#334155');
+  doc.rect(56, divY, pageW - 112, 0.5).fill('#3A4A51');
 
   // Metadata block
   doc.moveDown(1.5);
   const metaY = doc.y;
+  const productTypeText = productTypes.length > 0
+    ? productTypes.join(', ')
+    : REPORT_META.product;
   const metaItems = [
-    ['Producto', REPORT_META.product],
+    ['Producto', productTypeText],
     ['Tipo', REPORT_META.reportType],
     ['Fecha', generationDate],
     ['Versión', REPORT_META.version],
   ];
 
-  metaItems.forEach(([label, value], i) => {
-    const y = metaY + (i * 22);
-    applyFont(doc, { size: 9, font: 'Helvetica', color: '#64748B' });
-    doc.text(label.toUpperCase(), 56, y);
-    applyFont(doc, { size: 10, font: 'Helvetica-Bold', color: '#E2E8F0' });
-    doc.text(value, 180, y);
+  let currentMetaY = metaY;
+  metaItems.forEach(([label, value]) => {
+    applyFont(doc, { size: 8, font: 'Helvetica-Bold', color: '#8FA3AD' });
+    doc.text(label.toUpperCase(), 56, currentMetaY);
+    applyFont(doc, { size: 10, font: 'Helvetica', color: '#E4ECEF' });
+    const valueHeight = doc.heightOfString(value, { width: pageW - 236 });
+    doc.text(value, 180, currentMetaY, { width: pageW - 236 });
+    currentMetaY += Math.max(valueHeight, 12) + 10;
   });
 
   // Risk summary block at bottom
   const summaryY = pageH - 200;
-  doc.rect(56, summaryY, pageW - 112, 1).fill('#334155');
+  doc.rect(56, summaryY, pageW - 112, 1).fill('#3A4A51');
 
   // KPI row on cover
   const kpiY = summaryY + 25;
@@ -128,31 +124,16 @@ export function drawCoverPage(doc, { sprintName, totalVulnerabilities, severityC
 
   // Footer on cover
   doc.fontSize(8).font('Helvetica').fillColor('#475569');
-  doc.text(`${REPORT_META.company} — Generado automáticamente`, 56, pageH - 50, { width: pageW - 112, align: 'center' });
+  doc.text(`${REPORT_META.company} — Generado automáticamente`, 56, pageH - 82, { width: pageW - 112, align: 'center' });
 }
 
 // ── Page Header & Footer ─────────────────────────────────────
 
 export function addHeaderFooter(doc, pageIndex, totalPages, sectionName = '') {
-  const pageW = doc.page.width;
   const margins = PAGE.margins;
 
-  // Header
+  // Footer only. The visual top header was removed to keep pages clean.
   doc.save();
-  // Top accent line
-  doc.rect(0, 0, pageW, 3).fill(COLORS.accent);
-
-  // Header bar
-  doc.rect(margins.left, 20, PAGE.width, 20).fill('transparent');
-  applyFont(doc, TYPOGRAPHY.header);
-  doc.text(REPORT_META.reportType.toUpperCase(), margins.left, 26);
-
-  if (sectionName) {
-    doc.text(sectionName, margins.left, 26, { width: PAGE.width, align: 'right' });
-  }
-
-  // Header divider
-  doc.rect(margins.left, 42, PAGE.width, 0.5).fill(COLORS.gray200);
 
   // Footer
   doc.rect(margins.left, PAGE.height - 40, PAGE.width, 0.5).fill(COLORS.gray200);
@@ -179,22 +160,20 @@ export function drawSectionTitle(doc, title, sectionNumber) {
   const startX = PAGE.margins.left;
   const y = doc.y;
 
-  // Section number accent
+  doc.save();
+  doc.roundedRect(startX, y, PAGE.width, sectionNumber ? 46 : 36, 5).fill(COLORS.gray50);
+
   if (sectionNumber) {
-    doc.rect(startX, y, 4, 28).fill(COLORS.accent);
-    applyFont(doc, { size: 10, font: 'Helvetica-Bold', color: COLORS.accent });
-    doc.text(`SECCIÓN ${sectionNumber}`, startX + 14, y + 2);
+    doc.rect(startX, y, 4, 46).fill(COLORS.accent);
+    applyFont(doc, { size: 8, font: 'Helvetica-Bold', color: COLORS.accent });
+    doc.text(`SECCIÓN ${sectionNumber}`, startX + 16, y + 8);
   }
 
-  // Title
   applyFont(doc, TYPOGRAPHY.sectionTitle);
-  doc.text(title, startX + 14, sectionNumber ? y + 14 : y, { width: PAGE.width - 20 });
+  doc.text(title, startX + 16, sectionNumber ? y + 22 : y + 10, { width: PAGE.width - 28 });
+  doc.restore();
 
-  // Underline
-  const lineY = doc.y + 8;
-  doc.rect(startX, lineY, PAGE.width, 1.5).fill(COLORS.primary);
-  doc.rect(startX, lineY + 2, 60, 1.5).fill(COLORS.accent);
-  doc.y = lineY + SPACING.xl;
+  doc.y = y + (sectionNumber ? 62 : 52);
 }
 
 export function drawSubsectionTitle(doc, title) {
@@ -202,11 +181,11 @@ export function drawSubsectionTitle(doc, title) {
   const startX = PAGE.margins.left;
   const y = doc.y;
 
-  // Small accent dot
-  doc.circle(startX + 4, y + 6, 3).fill(COLORS.accent);
+  // Small accent rule
+  doc.rect(startX, y + 3, 3, 14).fill(COLORS.accent);
 
   applyFont(doc, TYPOGRAPHY.sectionSubtitle);
-  doc.text(title, startX + 14, y);
+  doc.text(title, startX + 12, y);
   doc.moveDown(0.7);
 }
 
@@ -232,9 +211,9 @@ export function drawSeparator(doc, style = 'light') {
 export function drawKPIRow(doc, kpis) {
   ensureSpace(doc, 100);
   const startX = PAGE.margins.left;
-  const cardGap = 12;
+  const cardGap = 10;
   const cardWidth = (PAGE.width - (cardGap * (kpis.length - 1))) / kpis.length;
-  const cardHeight = 76;
+  const cardHeight = 72;
   const y = doc.y;
 
   kpis.forEach((kpi, i) => {
@@ -242,18 +221,19 @@ export function drawKPIRow(doc, kpis) {
 
     // Card background
     doc.save();
-    doc.roundedRect(x, y, cardWidth, cardHeight, 4).fill(COLORS.gray50);
+    doc.roundedRect(x, y, cardWidth, cardHeight, 5)
+      .fillAndStroke(COLORS.white, COLORS.gray200);
 
-    // Top accent bar
-    doc.rect(x, y, cardWidth, 3).fill(kpi.color || COLORS.accent);
+    // Left accent bar
+    doc.rect(x, y + 8, 3, cardHeight - 16).fill(kpi.color || COLORS.accent);
 
     // Value
     doc.fontSize(22).font('Helvetica-Bold').fillColor(kpi.color || COLORS.primary);
-    doc.text(kpi.value, x, y + 20, { width: cardWidth, align: 'center' });
+    doc.text(kpi.value, x + 10, y + 18, { width: cardWidth - 20, align: 'center' });
 
     // Label
     doc.fontSize(8).font('Helvetica').fillColor(COLORS.gray500);
-    doc.text(kpi.label, x, y + 52, { width: cardWidth, align: 'center' });
+    doc.text(kpi.label, x + 10, y + 48, { width: cardWidth - 20, align: 'center' });
 
     doc.restore();
   });
@@ -297,16 +277,14 @@ export function drawTable(doc, { headers, rows, colWidths, tableWidth, options =
   const computedWidths = colWidths || headers.map(() => totalWidth / headers.length);
   const rowH = options.rowHeight || SPACING.tableRow;
   const headerH = options.headerHeight || SPACING.tableHeaderH;
-  const showBorder = options.showBorder !== false;
 
   let currentY = doc.y;
 
   function drawHeaderRow(y) {
     // Header background with rounded top
     doc.save();
-    doc.roundedRect(startX, y, totalWidth, headerH, 3).fill(COLORS.headerBg);
-    // Make bottom corners square
-    doc.rect(startX, y + headerH - 3, totalWidth, 3).fill(COLORS.headerBg);
+    doc.roundedRect(startX, y, totalWidth, headerH, 4).fill(COLORS.tableBg);
+    doc.rect(startX, y + headerH - 1, totalWidth, 1).fill(COLORS.accent);
     doc.restore();
 
     let xOffset = startX;
@@ -377,15 +355,6 @@ export function drawTable(doc, { headers, rows, colWidths, tableWidth, options =
 
     currentY += rowH;
   });
-
-  // Table outer border
-  if (showBorder) {
-    const tableH = currentY - doc.y + headerH + (rows.length * rowH);
-    doc.save();
-    doc.roundedRect(startX, doc.y, totalWidth, currentY - doc.y + headerH, 3)
-      .strokeColor(COLORS.gray200).lineWidth(0.5).stroke();
-    doc.restore();
-  }
 
   doc.y = currentY + SPACING.lg;
 }
@@ -627,7 +596,7 @@ export function drawInfoBox(doc, text, type = 'info') {
   ensureSpace(doc, 60);
 
   const colors = {
-    info: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
+    info: { bg: '#ECFDF5', border: COLORS.accent, text: '#065F46' },
     warning: { bg: '#FFFBEB', border: '#F59E0B', text: '#92400E' },
     success: { bg: '#F0FDF4', border: '#16A34A', text: '#166534' },
     danger: { bg: '#FEF2F2', border: '#DC2626', text: '#991B1B' },

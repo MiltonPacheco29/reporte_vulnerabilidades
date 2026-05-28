@@ -1,168 +1,140 @@
 # Generador de Reporte de Vulnerabilidades
 
-Aplicación Node.js que toma un archivo CSV de hallazgos (`findings.csv`) y genera un reporte PDF ejecutivo/técnico por sprint o carpeta de entrada.
+CLI en Node.js que analiza un archivo `findings.csv` y genera un reporte PDF ejecutivo/técnico de vulnerabilidades.
 
-## Resumen De Lo Que Se Hizo
+El proyecto está orientado a reportes por carpeta o sprint dentro de `data/`. Por defecto usa `data/Ejemplo/findings.csv` y escribe el PDF resultante en la misma carpeta de entrada.
 
-Durante los ajustes recientes se aplicaron estos cambios principales:
+## Stack
 
-1. Reorganización de carpetas de la aplicación para mejorar mantenibilidad.
-2. Estructura de datos simplificada: se eliminó carpeta intermedia `sprints`.
-3. Entradas y salidas unificadas por carpeta: el PDF se genera en la misma carpeta donde está el `findings.csv`.
-4. Parámetro de entrada opcional: si no se envía argumento, usa `Ejemplo` por defecto.
-5. Mejoras de maquetación del PDF:
-   - Menos saltos de página forzados entre secciones.
-   - Correcciones de espaciado para evitar texto amontonado en detalle de vulnerabilidades (4.1, 4.2, 4.3).
-   - En la sección Top 10, el bloque explicativo pasó de caja a nota en línea.
+| Pieza | Uso |
+| --- | --- |
+| Node.js ESM | Runtime y módulos nativos |
+| PDFKit | Renderizado del PDF |
+| PapaParse | Lectura y parseo del CSV |
 
-## Estructura Actual
-
-```text
-main/
-  data/
-    Ejemplo/
-      findings.csv
-    Sprint 245/
-      findings.csv
-      Reporte_Vulnerabilidades_Sprint_245.pdf
-  src/
-    config/
-      index.mjs
-    pdf/
-      components.mjs
-      sections.mjs
-    services/
-      data.mjs
-  index.mjs
-  package.json
-```
-
-## Prerrequisitos
-
-1. Node.js 18 o superior.
-2. npm (incluido con Node.js).
-
-Para validar versiones:
-
-```bash
-node -v
-npm -v
-```
-
-## Instalación De Dependencias
-
-Desde la carpeta raíz del proyecto (`main`):
+## Instalación
 
 ```bash
 npm install
 ```
 
-Esto instalará las dependencias definidas en `package.json` (`pdfkit` y `papaparse`).
-
-## Ejecución Paso A Paso
-
-### 1) Ir a la carpeta del proyecto
+## Uso
 
 ```bash
-cd c:/Users/miltonpacheco/Desktop/Actividades/Vulnerabilidades/main
-```
+# Usa data/Ejemplo/findings.csv
+npm start
 
-### 2) Instalar dependencias (solo la primera vez o cuando cambie `package.json`)
+# Usa data/<Carpeta>/findings.csv
+npm run analyze -- "Sprint 245"
 
-```bash
-npm install
-```
-
-### 3) Ejecutar con carpeta específica
-
-Ejemplo para `Sprint 245`:
-
-```bash
+# Equivalente directo
 node index.mjs "Sprint 245"
 ```
 
-También puedes usar script npm:
-
-```bash
-npm run analyze -- "Sprint 245"
-```
-
-### 4) Ejecutar sin parámetro (usa `Ejemplo` por defecto)
-
-```bash
-node index.mjs
-```
-
-Comportamiento esperado:
-
-1. Busca `data/Ejemplo/findings.csv`.
-2. Procesa hallazgos válidos por tag.
-3. Genera el PDF en la misma carpeta (`data/Ejemplo/`).
-
-## Dónde Queda El Reporte
-
-El archivo generado queda en la misma carpeta de entrada:
+El archivo generado queda en:
 
 ```text
 data/<Carpeta>/Reporte_Vulnerabilidades_<Carpeta>.pdf
 ```
 
-Ejemplo real:
+## Validación
+
+```bash
+npm run check
+node index.mjs
+```
+
+`npm run check` valida sintaxis de los módulos principales. `node index.mjs` ejecuta el flujo completo con la carpeta `Ejemplo` y genera el PDF.
+
+## Estructura
 
 ```text
-data/Sprint 245/Reporte_Vulnerabilidades_Sprint_245.pdf
+data/
+  Ejemplo/
+    findings.csv
+src/
+  config/
+    index.mjs
+  pdf/
+    components.mjs
+    sections.mjs
+  services/
+    data.mjs
+index.mjs
+package.json
 ```
 
-## Flujo Interno (Resumen Técnico)
+## Flujo interno
 
-1. `src/services/data.mjs`:
-   - Parsea CSV.
-   - Limpia datos.
-   - Filtra tags válidos.
-   - Calcula agregados y análisis.
-2. `src/pdf/sections.mjs`:
-   - Renderiza secciones del reporte.
-3. `src/pdf/components.mjs`:
-   - Componentes visuales reutilizables.
-4. `index.mjs`:
-   - Orquesta lectura, análisis y generación de PDF.
-
-## Problemas Comunes
-
-### 1) "No se encontraron vulnerabilidades con tags válidos"
-
-Causa común:
-
-1. `findings.csv` vacío.
-2. Tags fuera del catálogo válido.
-
-Qué revisar:
-
-1. Que el CSV tenga filas reales.
-2. Que esté en la carpeta correcta (`data/<Carpeta>/findings.csv`).
-
-### 2) "No se encontró findings.csv"
-
-Verifica nombre exacto de archivo y ubicación.
-
-### 3) Dependencias faltantes
-
-Ejecuta:
-
-```bash
-npm install
+```mermaid
+flowchart TD
+  A[index.mjs] --> B[Resolver carpeta de entrada]
+  B --> C[Leer findings.csv]
+  C --> D[parseCSV]
+  D --> E[filterByValidTags]
+  E --> F[analyzeData]
+  F --> G[PDFKit]
+  G --> H[sections.mjs]
+  H --> I[components.mjs]
+  I --> J[Reporte PDF]
 ```
 
-## Comandos Útiles
+## Secciones del PDF
 
-```bash
-# Ejecutar por defecto (Ejemplo)
-node index.mjs
+| Sección | Contenido |
+| --- | --- |
+| Portada | Totales, severidades y valores únicos de `product_type` |
+| 01 Resumen Ejecutivo | KPIs y distribución por severidad |
+| 02 Análisis por Tipo de Vulnerabilidad | Diagrama de barras por tag y descripción de tipos |
+| 03 Análisis por Servicio y Severidad | Tres tablas por grupo: `fluidattacks`, `c2c` y `engines` |
+| 04 Prioridades Accionables | Vulnerabilidades priorizadas por severidad, CVSS, EPSS, SLA, ambiente y mitigación |
+| 05 Detalle de Vulnerabilidades | Hallazgos agrupados por servicio |
 
-# Ejecutar una carpeta específica
-node index.mjs "Sprint 245"
+## Campos relevantes del CSV
 
-# Usando npm scripts
-npm run start -- "Sprint 245"
-npm run analyze -- "Sprint 245"
-```
+El analizador usa, entre otros, estos campos cuando existen:
+
+| Campo | Uso |
+| --- | --- |
+| `tag` | Clasificación principal del hallazgo |
+| `product_type` | Producto mostrado en portada |
+| `engagement` | Servicio o aplicación afectada |
+| `severity` | Nivel de severidad |
+| `cvss_score` | Priorización técnica |
+| `epss` / `epss_percentile` | Probabilidad de explotación |
+| `sla_days_remaining` | Urgencia por SLA |
+| `environment` | Contexto operativo |
+| `mitigation` | Cobertura de remediación |
+| `component` / `version` | Dependencia o componente vulnerable |
+| `file_path` | Ubicación técnica del hallazgo |
+
+Si un campo no está presente o viene vacío, el código aplica valores por defecto seguros para evitar romper la generación del PDF.
+
+## Grupos de tags
+
+La sección 03 agrupa los hallazgos así:
+
+| Grupo | Tags incluidos |
+| --- | --- |
+| `fluidattacks` | `fluidattacks` |
+| `c2c` | `c2c` |
+| `engines` | `engine_dependencies`, `engine_container`, `engine_iac`, `black_list; engine_dependencies` |
+
+La configuración central de grupos está en `src/config/index.mjs`.
+
+## Archivos clave
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `index.mjs` | Orquesta entrada, análisis y generación del PDF |
+| `src/services/data.mjs` | Parseo, limpieza, filtros y agregados del CSV |
+| `src/pdf/sections.mjs` | Renderizado de secciones del reporte |
+| `src/pdf/components.mjs` | Componentes visuales reutilizables de PDFKit |
+| `src/config/index.mjs` | Tema visual, metadatos, severidades y grupos de tags |
+
+## Notas de mantenimiento
+
+- Los PDFs generados están ignorados por Git.
+- El CSV de ejemplo `data/Ejemplo/findings.csv` sí queda versionado para pruebas locales.
+- Antes de subir cambios, ejecutar `npm run check` y `node index.mjs`.
+- Si se cambia la estructura del CSV, revisar primero `src/services/data.mjs` y después las secciones que consumen esos agregados.

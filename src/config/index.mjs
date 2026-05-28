@@ -6,7 +6,7 @@
 
 export const PAGE = {
   size: 'A4',
-  margins: { top: 60, bottom: 60, left: 56, right: 56 },
+  margins: { top: 64, bottom: 58, left: 54, right: 54 },
   get width() { return 595.28 - this.margins.left - this.margins.right; },
   get height() { return 841.89; }
 };
@@ -14,54 +14,54 @@ export const PAGE = {
 // ── Color Palette (preserved from original) ──────────────────
 export const COLORS = {
   // Brand
-  primary: '#1E3A5F',
-  primaryLight: '#2D5A8E',
-  primaryDark: '#0F1F33',
-  accent: '#3B82F6',
+  primary: '#263238',
+  primaryLight: '#455A64',
+  primaryDark: '#111827',
+  accent: '#00A884',
 
   // Severity (original palette)
   Critical: '#DC2626',
   High: '#EA580C',
   Medium: '#CA8A04',
   Low: '#16A34A',
-  Info: '#2563EB',
+  Info: '#0284C7',
   'Medium Low': '#D97706',
   'Medium High': '#E11D48',
 
   // Neutrals
   white: '#FFFFFF',
-  gray50: '#F9FAFB',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  gray700: '#374151',
-  gray800: '#1F2937',
+  gray50: '#FAFBFC',
+  gray100: '#F1F5F7',
+  gray200: '#DCE4E8',
+  gray300: '#C7D2D8',
+  gray400: '#8A9BA6',
+  gray500: '#60717B',
+  gray600: '#43525A',
+  gray700: '#303C43',
+  gray800: '#1F2930',
   gray900: '#111827',
 
   // Functional
   success: '#16A34A',
   warning: '#F59E0B',
   danger: '#DC2626',
-  info: '#2563EB',
+  info: '#0284C7',
 
   // Backgrounds
-  coverBg: '#0F1F33',
-  headerBg: '#1E3A5F',
-  tableBg: '#F8FAFC',
+  coverBg: '#172126',
+  headerBg: '#263238',
+  tableBg: '#F6F9FA',
   cardBg: '#FFFFFF',
-  accentBar: '#3B82F6',
+  accentBar: '#00A884',
 };
 
 export const TAG_COLORS = {
-  'engine_dependencies': '#3B82F6',
+  'engine_dependencies': '#0284C7',
   'c2c': '#EF4444',
-  'engine_container': '#8B5CF6',
-  'engine_iac': '#F59E0B',
-  'fluidattacks': '#10B981',
-  'black_list; engine_dependencies': '#6366F1'
+  'engine_container': '#7C3AED',
+  'engine_iac': '#D97706',
+  'fluidattacks': '#00A884',
+  'black_list; engine_dependencies': '#475569'
 };
 
 // ── Severity Visual Config ───────────────────────────────────
@@ -72,21 +72,21 @@ export const SEVERITY_CONFIG = {
   'Medium High': { color: '#E11D48', bg: '#FFF1F2', border: '#FECDD3', icon: '●', order: 2 },
   'Medium Low':  { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '●', order: 3 },
   Low:      { color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0', icon: '●', order: 4 },
-  Info:     { color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: '●', order: 5 },
+  Info:     { color: '#0284C7', bg: '#F0F9FF', border: '#BAE6FD', icon: '●', order: 5 },
 };
 
 // ── Typography Scale ─────────────────────────────────────────
 export const TYPOGRAPHY = {
-  coverTitle:      { size: 32, font: 'Helvetica-Bold', color: COLORS.white },
-  coverSubtitle:   { size: 16, font: 'Helvetica',      color: '#94A3B8' },
-  coverMeta:       { size: 11, font: 'Helvetica',      color: '#CBD5E1' },
-  sectionTitle:    { size: 18, font: 'Helvetica-Bold', color: COLORS.primary },
-  sectionSubtitle: { size: 13, font: 'Helvetica-Bold', color: COLORS.gray700 },
+  coverTitle:      { size: 30, font: 'Helvetica-Bold', color: COLORS.white },
+  coverSubtitle:   { size: 15, font: 'Helvetica',      color: '#B8C7CE' },
+  coverMeta:       { size: 10, font: 'Helvetica',      color: '#D7E0E4' },
+  sectionTitle:    { size: 17, font: 'Helvetica-Bold', color: COLORS.primary },
+  sectionSubtitle: { size: 12, font: 'Helvetica-Bold', color: COLORS.gray700 },
   subsection:      { size: 11, font: 'Helvetica-Bold', color: COLORS.gray700 },
   body:            { size: 10, font: 'Helvetica',      color: COLORS.gray800 },
   bodySmall:       { size: 9,  font: 'Helvetica',      color: COLORS.gray600 },
   caption:         { size: 8,  font: 'Helvetica',      color: COLORS.gray500 },
-  tableHeader:     { size: 8.5, font: 'Helvetica-Bold', color: COLORS.white },
+  tableHeader:     { size: 8.5, font: 'Helvetica-Bold', color: COLORS.primary },
   tableCell:       { size: 8.5, font: 'Helvetica',      color: COLORS.gray800 },
   tableCellBold:   { size: 8.5, font: 'Helvetica-Bold', color: COLORS.gray800 },
   badge:           { size: 7.5, font: 'Helvetica-Bold', color: COLORS.white },
